@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בדיקת חיישנים - פרויקט הליוס</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: #00ff00; padding: 20px; }
+        .card { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        h1 { margin-bottom: 10px; font-size: 1.5rem; }
+        .value { font-size: 2rem; font-weight: bold; font-family: monospace; }
+        .label { font-size: 0.9rem; color: #aaa; }
+        button { background: #00cc00; color: black; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; margin-top: 20px; }
+        .error { color: red; margin-top: 10px; font-size: 0.8rem; }
+    </style>
+</head>
+<body>
+
+    <h1>בדיקת היתכנות (POC)</h1>
+    <p>כוון את הטלפון לשמש (או לצל מינימלי)</p>
+
+    <div class="card">
+        <div class="label">כיוון (אזימוט - מצפן)</div>
+        <div class="value" id="alpha">0°</div>
+        <div class="label">צפון: 0° / מזרח: 90°</div>
+    </div>
+
+    <div class="card">
+        <div class="label">גובה (Elevation)</div>
+        <div class="value" id="beta">0°</div>
+        <div class="label">0° = אופק / 90° = מעל הראש</div>
+    </div>
+
+    <div class="card">
+        <div class="label">מיקום (GPS)</div>
+        <div class="value" style="font-size: 1rem;" id="gps">ממתין...</div>
+    </div>
+
+    <button id="startBtn" onclick="requestPermissions()">התחל מדידה (לחץ כאן)</button>
+    <div class="error" id="debug"></div>
+
+    <script>
+        const debug = document.getElementById('debug');
+
+        function updateDisplay(alpha, beta, gpsData) {
+            // תיקון מצפן למכשירי אנדרואיד מסוימים שנותנים היפוך
+            let compass = alpha ? Math.round(alpha) : 0;
+            // הטיה: Beta הוא בד"כ גובה המכשיר כשהוא מונח על השולחן. 
+            // אם מכוונים לשמש, אנחנו צריכים את הזווית מהאופק.
+            let elevation = beta ? Math.round(beta) : 0; 
+            
+            document.getElementById('alpha').innerText = compass + '°';
+            document.getElementById('beta').innerText = elevation + '°';
+            
+            if(gpsData) {
+                document.getElementById('gps').innerText = 
+                    `${gpsData.latitude.toFixed(4)}, ${gpsData.longitude.toFixed(4)}`;
+            }
+        }
+
+        function handleOrientation(event) {
+            // Alpha = מצפן (0-360)
+            // Beta = הטיה קדימה/אחורה (-180 עד 180) - זה הגובה של השמש
+            // Gamma = הטיה לצדדים (פלס)
+            
+            // הערה למפתח: באייפון webkitCompassHeading נותן את הצפון האמיתי טוב יותר מ-alpha
+            let compass = event.alpha;
+            if(event.webkitCompassHeading) {
+                compass = event.webkitCompassHeading;
+            }
+
+            // Beta כשהטלפון עומד מול השמש
+            // ברוב המכשירים: 90 מעלות זה זקוף, 0 זה שוכב. נצטרך לכייל את זה בהמשך.
+            let tilt = event.beta; 
+
+            updateDisplay(compass, tilt, null);
+        }
+
+        function requestPermissions() {
+            // שלב 1: בקשת GPS
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    document.getElementById('gps').innerText = 
+                        `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
+                }, function(error) {
+                    debug.innerText += " שגיאת GPS: " + error.message + "\n";
+                });
+            }
+
+            // שלב 2: בקשת חיישני תנועה (קריטי לאייפון 13+)
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+                // זהו אייפון
+                DeviceMotionEvent.requestPermission()
+                    .then(response => {
+                        if (response == 'granted') {
+                            window.addEventListener('deviceorientation', handleOrientation);
+                            document.getElementById('startBtn').style.display = 'none';
+                            debug.innerText += " חיישנים אושרו (iOS)\n";
+                        } else {
+                            debug.innerText += " הרשאה נדחתה\n";
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // זהו אנדרואיד או מחשב
+                window.addEventListener('deviceorientation', handleOrientation);
+                document.getElementById('startBtn').style.display = 'none';
+                debug.innerText += " חיישנים הופעלו (Android/PC)\n";
+            }
+        }
+    </script>
+</body>
+</html>
