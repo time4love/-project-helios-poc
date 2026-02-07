@@ -3,109 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>בדיקת חיישנים - פרויקט הליוס</title>
+    <title>פרויקט הליוס - בדיקת מודל</title>
+    <!-- טעינת ספריית SunCalc משרת חיצוני לחישובים אסטרונומיים -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/suncalc/1.9.0/suncalc.min.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #1a1a1a; color: #00ff00; padding: 20px; }
-        .card { background: #333; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
-        h1 { margin-bottom: 10px; font-size: 1.5rem; }
-        .value { font-size: 2rem; font-weight: bold; font-family: monospace; }
-        .label { font-size: 0.9rem; color: #aaa; }
-        button { background: #00cc00; color: black; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; margin-top: 20px; }
-        .error { color: red; margin-top: 10px; font-size: 0.8rem; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #000; color: #fff; padding: 15px; margin: 0; }
+        .header { margin-bottom: 20px; border-bottom: 1px solid #333; padding-bottom: 10px; }
+        .h-title { font-size: 1.2rem; color: #00d2ff; }
+        
+        .card { background: #1e1e1e; padding: 15px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #333; }
+        .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .label { font-size: 0.9rem; color: #888; }
+        .value { font-size: 1.3rem; font-weight: bold; font-family: monospace; }
+        
+        .nasa { color: #ffcc00; } /* צבע נאס"א */
+        .real { color: #00ff00; } /* צבע המדידה */
+        .delta { font-size: 1.5rem; color: #ff3333; margin-top: 5px; }
+        
+        button { background: linear-gradient(45deg, #00d2ff, #007aff); color: white; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; margin-top: 10px; font-weight: bold; box-shadow: 0 4px 15px rgba(0,122,255,0.4); width: 100%; }
+        
+        .instruction { background: #332200; color: #ffcc00; padding: 10px; font-size: 0.9rem; border-radius: 8px; margin-bottom: 20px; }
+        
+        /* אזור דיבוג מוסתר */
+        #debug { font-size: 0.7rem; color: #555; margin-top: 30px; text-align: left; direction: ltr; }
     </style>
 </head>
 <body>
 
-    <h1>בדיקת היתכנות (POC)</h1>
-    <p>כוון את הטלפון לשמש (או לצל מינימלי)</p>
-
-    <div class="card">
-        <div class="label">כיוון (אזימוט - מצפן)</div>
-        <div class="value" id="alpha">0°</div>
-        <div class="label">צפון: 0° / מזרח: 90°</div>
+    <div class="header">
+        <div class="h-title">PROJECT HELIOS v0.2</div>
+        <div style="font-size: 0.8rem; color: #aaa;">בדיקת נאותות בזמן אמת</div>
     </div>
 
-    <div class="card">
-        <div class="label">גובה (Elevation)</div>
-        <div class="value" id="beta">0°</div>
-        <div class="label">0° = אופק / 90° = מעל הראש</div>
+    <div class="instruction">
+        ⚠️ <strong>הוראות מדידה:</strong><br>
+        1. צא החוצה לשמש.<br>
+        2. כוון את ראש הטלפון אל השמש.<br>
+        3. הזז את הטלפון עד שהצל שהוא מטיל על הרצפה הוא <strong>הקטן ביותר</strong> (כמו נקודה).
     </div>
 
+    <!-- כרטיס גובה -->
     <div class="card">
-        <div class="label">מיקום (GPS)</div>
-        <div class="value" style="font-size: 1rem;" id="gps">ממתין...</div>
+        <div class="label" style="text-align:center; margin-bottom:10px;">גובה השמש (Elevation)</div>
+        <div class="row">
+            <div class="label">נאס"א טוענת:</div>
+            <div class="value nasa" id="nasa-alt">--</div>
+        </div>
+        <div class="row">
+            <div class="label">הטלפון מודד:</div>
+            <div class="value real" id="phone-alt">--</div>
+        </div>
+        <div style="border-top:1px solid #444; margin-top:5px; padding-top:5px;">
+            <div class="label">הסטייה (דלתא):</div>
+            <div class="value delta" id="delta-alt">--</div>
+        </div>
     </div>
 
-    <button id="startBtn" onclick="requestPermissions()">התחל מדידה (לחץ כאן)</button>
-    <div class="error" id="debug"></div>
+    <!-- כרטיס כיוון -->
+    <div class="card">
+        <div class="label" style="text-align:center; margin-bottom:10px;">כיוון (Azimuth)</div>
+        <div class="row">
+            <div class="label">נאס"א טוענת:</div>
+            <div class="value nasa" id="nasa-az">--</div>
+        </div>
+        <div class="row">
+            <div class="label">הטלפון מודד:</div>
+            <div class="value real" id="phone-az">--</div>
+        </div>
+    </div>
+
+    <button id="btn" onclick="startApp()">התחל מדידה</button>
+    
+    <div id="gps-status" style="margin-top:10px; font-size:0.8rem; color:#888;">ממתין ל-GPS...</div>
+    <div id="debug"></div>
 
     <script>
-        const debug = document.getElementById('debug');
+        let currentLat = 0;
+        let currentLon = 0;
+        let isRunning = false;
 
-        function updateDisplay(alpha, beta, gpsData) {
-            // תיקון מצפן למכשירי אנדרואיד מסוימים שנותנים היפוך
-            let compass = alpha ? Math.round(alpha) : 0;
-            // הטיה: Beta הוא בד"כ גובה המכשיר כשהוא מונח על השולחן. 
-            // אם מכוונים לשמש, אנחנו צריכים את הזווית מהאופק.
-            let elevation = beta ? Math.round(beta) : 0; 
-            
-            document.getElementById('alpha').innerText = compass + '°';
-            document.getElementById('beta').innerText = elevation + '°';
-            
-            if(gpsData) {
-                document.getElementById('gps').innerText = 
-                    `${gpsData.latitude.toFixed(4)}, ${gpsData.longitude.toFixed(4)}`;
-            }
+        function toDegrees(radians) {
+            return radians * (180 / Math.PI);
         }
 
+        // חישוב המיקום לפי נאס"א (SunCalc)
+        function calculateNasaPosition() {
+            if (currentLat === 0) return;
+            
+            const now = new Date();
+            // SunCalc מחזיר רדיאנים, צריך להמיר למעלות
+            const sunPos = SunCalc.getPosition(now, currentLat, currentLon);
+            
+            // המרה ותיקון לגובה
+            let nasaAlt = toDegrees(sunPos.altitude);
+            // אזימוט ב-SunCalc: דרום=0, מערב=90. במצפן: צפון=0, מזרח=90. צריך המרה.
+            let nasaAz = toDegrees(sunPos.azimuth) + 180; 
+
+            document.getElementById('nasa-alt').innerText = nasaAlt.toFixed(1) + '°';
+            document.getElementById('nasa-az').innerText = nasaAz.toFixed(1) + '°';
+            
+            return { alt: nasaAlt, az: nasaAz };
+        }
+
+        // טיפול בחיישני המכשיר
         function handleOrientation(event) {
-            // Alpha = מצפן (0-360)
-            // Beta = הטיה קדימה/אחורה (-180 עד 180) - זה הגובה של השמש
-            // Gamma = הטיה לצדדים (פלס)
+            if (!isRunning) return;
+
+            // חילוץ נתונים
+            let compass = event.webkitCompassHeading || (360 - event.alpha); // תיקון לאנדרואיד/אייפון
+            let tilt = event.beta; // הטיה קדימה אחורה (גובה)
+
+            // באייפון/אנדרואיד, כשהטלפון עומד (90 מעלות לקרקע) Beta הוא 90.
+            // כשהוא שוכב (מביט לשמיים בזניט) Beta הוא 0.
+            // אנחנו צריכים לתקן את זה כדי ש-0 יהיה אופק ו-90 יהיה למעלה.
+            // התיקון תלוי איך המשתמש מחזיק. נניח כרגע החזקה אנכית:
+            let measuredAlt = tilt - 90; 
+            // הערה: זה ידרוש כיול מדויק יותר בהמשך (Calibration Mode)
+            // לצורך ה-POC נציג את הנתון הגולמי פחות 90 כדי להתקרב לאופק.
             
-            // הערה למפתח: באייפון webkitCompassHeading נותן את הצפון האמיתי טוב יותר מ-alpha
-            let compass = event.alpha;
-            if(event.webkitCompassHeading) {
-                compass = event.webkitCompassHeading;
+            // עדכון תצוגה
+            document.getElementById('phone-alt').innerText = Math.abs(tilt.toFixed(1)) + '°'; // זמני
+            document.getElementById('phone-az').innerText = compass.toFixed(1) + '°';
+
+            // השוואה (דלתא)
+            const nasaData = calculateNasaPosition();
+            if (nasaData) {
+                // חישוב פער פשוט
+                // שים לב: זה חישוב גס ל-POC
+                let diff = Math.abs(Math.abs(tilt) - Math.abs(nasaData.alt)); 
+                document.getElementById('delta-alt').innerText = diff.toFixed(1) + '°';
             }
-
-            // Beta כשהטלפון עומד מול השמש
-            // ברוב המכשירים: 90 מעלות זה זקוף, 0 זה שוכב. נצטרך לכייל את זה בהמשך.
-            let tilt = event.beta; 
-
-            updateDisplay(compass, tilt, null);
         }
 
-        function requestPermissions() {
-            // שלב 1: בקשת GPS
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition(function(position) {
-                    document.getElementById('gps').innerText = 
-                        `${position.coords.latitude.toFixed(4)}, ${position.coords.longitude.toFixed(4)}`;
-                }, function(error) {
-                    debug.innerText += " שגיאת GPS: " + error.message + "\n";
+        function startApp() {
+            // בקשת GPS
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(pos => {
+                    currentLat = pos.coords.latitude;
+                    currentLon = pos.coords.longitude;
+                    document.getElementById('gps-status').innerText = 
+                        `GPS: ${currentLat.toFixed(3)}, ${currentLon.toFixed(3)}`;
+                    calculateNasaPosition();
+                }, err => {
+                    alert("חובה לאשר מיקום כדי לחשב את נתוני נאס\"א");
                 });
             }
 
-            // שלב 2: בקשת חיישני תנועה (קריטי לאייפון 13+)
+            // בקשת חיישנים (iOS 13+)
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-                // זהו אייפון
                 DeviceMotionEvent.requestPermission()
                     .then(response => {
                         if (response == 'granted') {
                             window.addEventListener('deviceorientation', handleOrientation);
-                            document.getElementById('startBtn').style.display = 'none';
-                            debug.innerText += " חיישנים אושרו (iOS)\n";
-                        } else {
-                            debug.innerText += " הרשאה נדחתה\n";
+                            isRunning = true;
+                            document.getElementById('btn').style.display = 'none';
                         }
                     })
                     .catch(console.error);
             } else {
-                // זהו אנדרואיד או מחשב
                 window.addEventListener('deviceorientation', handleOrientation);
-                document.getElementById('startBtn').style.display = 'none';
-                debug.innerText += " חיישנים הופעלו (Android/PC)\n";
+                isRunning = true;
+                document.getElementById('btn').style.display = 'none';
             }
         }
     </script>
